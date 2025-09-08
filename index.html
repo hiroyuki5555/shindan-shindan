@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>陰陽五行タイプ別診断</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -109,6 +110,11 @@
                  <div id="ranking-options" class="space-y-3"></div>
                  <button id="next-rank-btn" class="hidden w-full mt-6 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg">次へ</button>
             </div>
+            <div class="mt-8">
+                <button id="back-btn" class="hidden w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300">
+                    戻る
+                </button>
+            </div>
         </div>
 
         <!-- Result Screen -->
@@ -121,6 +127,15 @@
                     <h3 class="font-bold text-xl mb-2 text-white border-none mt-0">あなたのタイプの本質</h3>
                     <p id="result-summary" class="text-gray-300 leading-relaxed"></p>
                 </div>
+                
+                <!-- Radar Chart container -->
+                <div class="my-8">
+                    <h3 class="font-bold text-xl mb-4 text-white">五行バランス</h3>
+                    <div class="bg-gray-800/50 p-4 rounded-lg">
+                         <canvas id="radar-chart"></canvas>
+                    </div>
+                </div>
+
                 <div id="report-container" class="mt-8 text-left report-content">
                     <!-- Detailed report content will be injected here -->
                 </div>
@@ -151,6 +166,7 @@
         const rankingInstruction = document.getElementById('ranking-instruction');
         const rankingOptions = document.getElementById('ranking-options');
         const nextRankBtn = document.getElementById('next-rank-btn');
+        const backBtn = document.getElementById('back-btn');
 
         const resultType = document.getElementById('result-type');
         const resultIcon = document.getElementById('result-icon');
@@ -293,7 +309,7 @@
                         <li><b>4. ストレスの内在化:</b> 問題や不満を表に出さず、内に溜め込む傾向があります。「迷惑をかけたくない」という思いから、助けを求めることを躊躇します。</li>
                     </ul>
                     <h3>仕事観とキャリア</h3>
-                    <p>あなたにとって仕事は、成長と調和、貢献と協力の場です。個人の成功よりもチーム全体の成功を重視し、周囲と共に成長することに喜びを見出します。競争よりも協調、対立よりも調和を大切にしながら、着実にキャリアを築いていきます。</p>
+                    <p>あなたにとって仕事は、成長と調と貢献と協力の場です。個人の成功よりもチーム全体の成功を重視し、周囲と共に成長することに喜びを見出します。競争よりも協調、対立よりも調和を大切にしながら、着実にキャリアを築いていきます。</p>
                     <h4>適したポジション</h4>
                     <ul><li>人事マネージャー</li><li>カスタマーサクセスマネージャー</li><li>プロジェクトコーディネーター</li><li>組織開発スペシャリスト</li><li>CSR・サステナビリティ責任者</li></ul>
                     <h4>成功のための環境</h4>
@@ -354,7 +370,7 @@
                     <h4>相剋関係(注意が必要)</h4>
                     <ul><li><b>水タイプとの関係:</b> 水が火を消すように、水タイプの慎重さや分析的アプローチは、時にあなたの情熱を冷ます可能性があります。</li><li><b>金タイプへの影響:</b> 火が金を溶かすように、あなたの情熱的なアプローチは、ルールや規律を重視する金タイプには圧倒的に感じられることがあります。</li></ul>
                     <h4>比和関係(同じ火タイプ)</h4>
-                    <p>同じ火タイプとの協働は、爆発的なエネルギーを生み出しますが、制御が難しくなる可能性もあります。お互いの情熱が暴走しないよう、第三者の冷静な視点を入れることが重要です。</p>
+                    <p>同じ火タイプとの協働は、爆発的なエネルギーを生み出しますが、制御が難しくなる可能性もあります。お互いの情熱が暴走しないよう、第三者の冷静な視点を入れることが重要です。</li>
                     <h3>Well-Working (心地よく、健康に、幸せに働くために)</h3>
                     <h4>情熱を持続可能にする働き方</h4>
                     <ul><li><b>1. エネルギーの波を理解する:</b> あなたは、エネルギーの波が激しいことを自覚し、それに合わせた働き方を設計することが重要です。</li><li><b>2. 燃え尽きを防ぐ仕組みづくり:</b> 週に1回は完全にオフラインになる時間を設け、月に1度は自然の中で過ごす日を作るなど、意識的な「消火」の時間を持つことが大切です。</li><li><b>3. 多様性のある仕事内容:</b> 複数のプロジェクトを並行して進める、定期的に新しい挑戦を取り入れるなど、仕事に多様性を持たせましょう。</li></ul>
@@ -730,9 +746,12 @@
         let scores = {};
         let currentRanking = [];
         let currentRankStep = 1;
+        let historyStack = []; // To store answer history for the back button
+        let radarChartInstance = null; // To hold the chart instance
 
         function startQuiz() {
             currentQuestionIndex = 0;
+            historyStack = [];
             scores = {
                 yang: 0, yin: 0, wood: 0, fire: 0, earth: 0, metal: 0, water: 0,
             };
@@ -743,11 +762,18 @@
         }
         
         function restartQuiz() {
+            if (radarChartInstance) {
+                radarChartInstance.destroy();
+                radarChartInstance = null;
+            }
             resultScreen.classList.add('hidden');
             startScreen.classList.remove('hidden');
         }
 
         function displayQuestion() {
+            // Handle back button visibility
+            backBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+
             if (currentQuestionIndex >= questions.length) {
                 calculateResult();
                 return;
@@ -757,13 +783,11 @@
             questionCounter.textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
             progressBar.style.width = `${((currentQuestionIndex + 1) / questions.length) * 100}%`;
             
-            // Sanitize question text to remove prefixes like (木 vs 火)
             let displayQuestionText = question.q;
             if (question.type === 'choice' && displayQuestionText.includes(')')) {
                  displayQuestionText = displayQuestionText.substring(displayQuestionText.indexOf(')') + 2);
             }
             questionText.textContent = `Q${currentQuestionIndex + 1}. ${displayQuestionText}`;
-
 
             if (question.type === 'choice') {
                 rankingAnswers.classList.add('hidden');
@@ -784,6 +808,11 @@
         }
 
         function selectChoiceAnswer(type) {
+            historyStack.push({
+                questionIndex: currentQuestionIndex,
+                type: 'choice',
+                answeredType: type
+            });
             scores[type]++;
             currentQuestionIndex++;
             displayQuestion();
@@ -807,8 +836,13 @@
             });
             
             nextRankBtn.onclick = () => {
-                // Apply weighted scores
-                const rankingPoints = [5, 4, 3, 2, 1]; // Points for 1st, 2nd, etc.
+                const rankingPoints = [5, 4, 3, 2, 1];
+                historyStack.push({
+                    questionIndex: currentQuestionIndex,
+                    type: 'rank',
+                    rankedAnswers: [...currentRanking]
+                });
+
                 currentRanking.forEach((key, index) => {
                     scores[key] += rankingPoints[index];
                 });
@@ -831,6 +865,25 @@
                 rankingInstruction.textContent = `次に【${currentRankStep}位】を選択してください。`;
             }
         }
+        
+        function goBack() {
+            if (historyStack.length === 0) return;
+
+            const lastAction = historyStack.pop();
+            currentQuestionIndex = lastAction.questionIndex;
+
+            // Revert scores
+            if (lastAction.type === 'choice') {
+                scores[lastAction.answeredType]--;
+            } else if (lastAction.type === 'rank') {
+                const rankingPoints = [5, 4, 3, 2, 1];
+                lastAction.rankedAnswers.forEach((key, index) => {
+                    scores[key] -= rankingPoints[index];
+                });
+            }
+
+            displayQuestion();
+        }
 
         function calculateResult() {
             quizScreen.classList.add('hidden');
@@ -850,17 +903,77 @@
                 const gogyoResult = Object.keys(gogyoScores).reduce((a, b) => gogyoScores[a] > gogyoScores[b] ? a : b);
 
                 const finalType = `${yinYangResult}_${gogyoResult}`;
-                displayResult(finalType);
+                displayResult(finalType, gogyoScores);
             }, 1500);
         }
 
-        function displayResult(typeKey) {
+        function displayResult(typeKey, gogyoScores) {
+            // Destroy previous chart instance if it exists
+            if (radarChartInstance) {
+                radarChartInstance.destroy();
+            }
+
             const resultData = reports[typeKey];
             if (resultData) {
                 resultType.textContent = `${resultData.name}タイプ`;
                 resultSummary.textContent = resultData.summary;
                 reportContainer.innerHTML = resultData.details;
                 resultIcon.innerHTML = `<div class="text-6xl">${resultData.icon}</div>`;
+                
+                // Create Radar Chart
+                const ctx = document.getElementById('radar-chart').getContext('2d');
+                radarChartInstance = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['木', '火', '土', '金', '水'],
+                        datasets: [{
+                            label: '五行スコア',
+                            data: [
+                                gogyoScores.wood,
+                                gogyoScores.fire,
+                                gogyoScores.earth,
+                                gogyoScores.metal,
+                                gogyoScores.water
+                            ],
+                            backgroundColor: 'rgba(129, 140, 248, 0.2)',
+                            borderColor: 'rgba(129, 140, 248, 1)',
+                            pointBackgroundColor: 'rgba(129, 140, 248, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(129, 140, 248, 1)'
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    color: 'rgba(255, 255, 255, 0.2)'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.2)'
+                                },
+                                pointLabels: {
+                                    color: '#E5E7EB', // gray-200
+                                    font: {
+                                        size: 14,
+                                        family: "'Inter', 'Noto Sans JP', sans-serif"
+                                    }
+                                },
+                                ticks: {
+                                    color: '#D1D5DB', // gray-300
+                                    backdropColor: 'rgba(31, 41, 55, 0.8)',
+                                    stepSize: 2
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+
             } else {
                 resultType.textContent = "エラー";
                 resultSummary.textContent = "診断結果の取得に失敗しました。";
@@ -870,6 +983,7 @@
 
         startBtn.addEventListener('click', startQuiz);
         restartBtn.addEventListener('click', restartQuiz);
+        backBtn.addEventListener('click', goBack);
     </script>
 </body>
 </html>
