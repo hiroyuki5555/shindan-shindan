@@ -32,12 +32,17 @@
         .progress-bar-inner {
             transition: width 0.3s ease-in-out;
         }
-        .answer-btn {
+        .answer-btn, .rank-option-btn {
             transition: all 0.2s ease-in-out;
         }
-        .answer-btn:hover {
+        .answer-btn:hover, .rank-option-btn:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .rank-option-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #4b5563; /* gray-600 */
         }
         .report-content h3 {
             font-size: 1.25rem;
@@ -77,7 +82,7 @@
             <div class="my-6">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10c0-4.97-4.48-9-10-9Z"/><path d="M12 2a10 10 0 0 0-10 10c0 4.97 4.48 9 10 9a10 10 0 0 1 10-10c0-4.97-4.48-9-10-9Z"/><path d="M2 12c0 4.97 4.48 9 10 9"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
             </div>
-            <p class="mb-8 text-gray-300">40の質問に答えて、あなたの隠された性質と可能性を発見しましょう。</p>
+            <p class="mb-8 text-gray-300">43の質問に答えて、あなたの隠された性質と可能性を発見しましょう。</p>
             <button id="start-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 shadow-lg hover:shadow-indigo-500/50">
                 診断を開始する
             </button>
@@ -88,16 +93,21 @@
             <div class="mb-6">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-sm font-semibold text-indigo-400">Question</span>
-                    <span id="question-counter" class="text-sm text-gray-400">1 / 40</span>
+                    <span id="question-counter" class="text-sm text-gray-400">1 / 43</span>
                 </div>
                 <div class="w-full bg-gray-600 rounded-full h-2.5">
-                    <div id="progress-bar" class="bg-indigo-500 h-2.5 rounded-full progress-bar-inner" style="width: 2.5%"></div>
+                    <div id="progress-bar" class="bg-indigo-500 h-2.5 rounded-full progress-bar-inner" style="width: 2.3%"></div>
                 </div>
             </div>
             <h2 id="question-text" class="text-xl sm:text-2xl font-bold text-white mb-8 min-h-[6rem] flex items-center">質問文</h2>
-            <div class="space-y-4">
+            <div id="choice-answers" class="space-y-4">
                 <button id="answer-a" class="answer-btn w-full bg-gray-700 hover:bg-gray-600 text-left text-white font-medium py-4 px-6 rounded-lg">選択肢 A</button>
                 <button id="answer-b" class="answer-btn w-full bg-gray-700 hover:bg-gray-600 text-left text-white font-medium py-4 px-6 rounded-lg">選択肢 B</button>
+            </div>
+            <div id="ranking-answers" class="hidden">
+                 <p id="ranking-instruction" class="text-center text-indigo-300 mb-4"></p>
+                 <div id="ranking-options" class="space-y-3"></div>
+                 <button id="next-rank-btn" class="hidden w-full mt-6 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg">次へ</button>
             </div>
         </div>
 
@@ -131,9 +141,17 @@
         const questionCounter = document.getElementById('question-counter');
         const progressBar = document.getElementById('progress-bar');
         const questionText = document.getElementById('question-text');
+
+        // Answer containers
+        const choiceAnswers = document.getElementById('choice-answers');
         const answerA = document.getElementById('answer-a');
         const answerB = document.getElementById('answer-b');
         
+        const rankingAnswers = document.getElementById('ranking-answers');
+        const rankingInstruction = document.getElementById('ranking-instruction');
+        const rankingOptions = document.getElementById('ranking-options');
+        const nextRankBtn = document.getElementById('next-rank-btn');
+
         const resultType = document.getElementById('result-type');
         const resultIcon = document.getElementById('result-icon');
         const resultSummary = document.getElementById('result-summary');
@@ -141,61 +159,69 @@
 
         // --- Questions Data ---
         const questions = [
-            // Part 1: Yin/Yang (10 questions)
-            { q: "エネルギーを充電する方法は？", a: "人と会って話すことで活力を得る", b: "一人の時間を過ごして静かに充電する", typeA: 'yang', typeB: 'yin' },
-            { q: "新しい環境やグループに入った時、あなたの役割は？", a: "まずはリーダーシップを発揮して場を主導したい", b: "まずは周囲を観察し、全体の調和を考える", typeA: 'yang', typeB: 'yin' },
-            { q: "自分の意見を伝える時は？", a: "結論から先に、明確かつストレートに伝える", b: "相手の反応を伺いながら、言葉を選んで慎重に伝える", typeA: 'yang', typeB: 'yin' },
-            { q: "周囲からの注目については？", a: "注目されることで、より力を発揮できる", b: "縁の下の力持ちとして、目立たず貢献することに満足する", typeA: 'yang', typeB: 'yin' },
-            { q: "意思決定のスタイルは？", a: "直感とスピードを重視し、素早く決断する", b: "情報を集め、じっくり考えてから慎重に決断する", typeA: 'yang', typeB: 'yin' },
-            { q: "チームで働くなら、どのような役割を好む？", a: "明確なビジョンを示し、チームを牽引する役割", b: "メンバーの話を聞き、チーム内の潤滑油となる役割", typeA: 'yang', typeB: 'yin' },
-            { q: "変化に対するあなたのスタンスは？", a: "変化の激しい環境に身を置くことにワクワクする", b: "安定していて、予測可能な環境で働くことを好む", typeA: 'yang', typeB: 'yin' },
-            { q: "あなたの感情表現は？", a: "考えていることや感じていることが、表情や態度に出やすい", b: "感情はあまり表に出さず、内に秘めていることが多い", typeA: 'yang', typeB: 'yin' },
-            { q: "議論や会議の場では？", a: "積極的に発言し、議論をリードしていきたい", b: "まずは他の人の意見を最後まで聞き、理解することに努める", typeA: 'yang', typeB: 'yin' },
-            { q: "あなたの興味の方向性は？", a: "幅広い人や物事に関心を持ち、外の世界とのつながりを重視する", b: "特定の分野やテーマを深く掘り下げ、自分の内面世界を重視する", typeA: 'yang', typeB: 'yin' },
-            // Part 2: Gogyo (30 questions)
-            // 木 vs 火
-            { q: "新規プロジェクトを立ち上げるなら？", a: "綿密な計画と目標設定で、着実に成長を目指す", b: "革新的なアイデアと情熱で、一気に市場を席巻する", typeA: 'wood', typeB: 'fire' },
-            { q: "あなたがリーダーとしてチームを導く方法は？", a: "明確なビジョンと責任感で、皆を正しい方向へ導く", b: "カリスマ性と熱意で、メンバーのやる気に火をつける", typeA: 'wood', typeB: 'fire' },
-            { q: "あなたが仕事で「達成感」を感じる瞬間は？", a: "長期的な目標を計画通りに達成した時", b: "誰も思いつかなかったアイデアが形になった時", typeA: 'wood', typeB: 'fire' },
-            // 木 vs 土
-            { q: "あなたにとって理想の組織とは？", a: "個々が常に成長を追求し、切磋琢磨できる組織", b: "メンバーがお互いを支え合い、安心して働ける組織", typeA: 'wood', typeB: 'earth' },
-            { q: "あなたが評価されたい点は？", a: "目標達成能力と、困難を乗り越える推進力", b: "チームをまとめる調整力と、人を育てる育成力", typeA: 'wood', typeB: 'earth' },
-            { q: "キャリアにおいて重要なのは？", a: "常に上を目指し、自分の市場価値を高め続けること", b: "組織に深く根差し、長期的に貢献し続けること", typeA: 'wood', typeB: 'earth' },
-            // 木 vs 金
-            { q: "ルールについてどう考える？", a: "正しい目的へ導くための、守るべき規範である", b: "効率性を最大化するための、合理的な仕組みである", typeA: 'wood', typeB: 'metal' },
-            { q: "仕事の進め方で対立したら？", a: "自分の正義や信念を貫き、粘り強く説得する", b: "客観的なデータや事実を提示し、論理的に解決する", typeA: 'wood', typeB: 'metal' },
-            { q: "あなたが許せないのは？", a: "責任感の欠如や、約束を破る行為", b: "非効率なプロセスや、品質への妥協", typeA: 'wood', typeB: 'metal' },
-            // 木 vs 水
-            { q: "目標達成へのアプローチは？", a: "一度決めた道は、困難があっても真っ直ぐに進む", b: "障害があれば、回り道や別のルートを柔軟に探す", typeA: 'wood', typeB: 'water' },
-            { q: "将来の計画は？", a: "具体的なステップを描き、計画的に実行していく", b: "状況の変化に対応できるよう、あえて余白を残しておく", typeA: 'wood', typeB: 'water' },
-            { q: "あなたの強みは？", a: "目標に向かって突き進む、揺るぎない推進力", b: "どんな環境にも適応し、新しい流れを生み出す力", typeA: 'wood', typeB: 'water' },
-            // 火 vs 土
-            { q: "どちらの言葉に、より共感する？", a: "「現状維持は衰退である」", b: "「急がば回れ」", typeA: 'fire', typeB: 'earth' },
-            { q: "チームへの貢献方法は？", a: "新しい視点やエネルギーをもたらし、チームを活性化させる", b: "メンバーの相談に乗り、チームの心理的な土台を支える", typeA: 'fire', typeB: 'earth' },
-            { q: "あなたが価値を置くのは？", a: "短期的に大きなインパクトを出すこと", b: "長期的に持続可能な成果を出すこと", typeA: 'fire', typeB: 'earth' },
-            // 火 vs 金
-            { q: "新しいことを始める時、まず何をする？", a: "とにかく行動してみて、走りながら考える", b: "徹底的に情報を分析し、リスクを洗い出してから動く", typeA: 'fire', typeB: 'metal' },
-            { q: "あなたのコミュニケーションスタイルは？", a: "情熱的に語り、相手の感情に訴えかける", b: "事実を淡々と述べ、論理的に相手を説得する", typeA: 'fire', typeB: 'metal' },
-            { q: "仕事でミスが起きた時、重視するのは？", a: "モチベーションを下げず、すぐ次のアクションに移ること", b: "原因を徹底的に分析し、再発防止策を立てること", typeA: 'fire', typeB: 'metal' },
-            // 火 vs 水
-            { q: "注目されることについて、どう思う？", a: "自分のアイデアや情熱を表現する絶好の機会だ", b: "戦略的に影響力を行使するための手段の一つだ", typeA: 'fire', typeB: 'water' },
-            { q: "あなたが面白いと感じる話は？", a: "未来の可能性を語る、夢のあるビジョンの話", b: "物事の裏側や仕組みを解き明かす、知的な洞察の話", typeA: 'fire', typeB: 'water' },
-            { q: "どちらの役割が得意？", a: "イベントのムードメーカーや盛り上げ役", b: "交渉の場で相手の意図を読み解く戦略家", typeA: 'fire', typeB: 'water' },
-            // 土 vs 金
-            { q: "チームメンバーのミスに対して、どう対応する？", a: "まず相手の気持ちを受け止め、成長の機会としてサポートする", b: "客観的に事実を指摘し、ルールに則った改善を求める", typeA: 'earth', typeB: 'metal' },
-            { q: "あなたが組織に求めるものは？", a: "家族のような温かい人間関係と、協力的な文化", b: "プロフェッショナルとして尊重される、公正な評価制度", typeA: 'earth', typeB: 'metal' },
-            { q: "仕事の進め方で好むのは？", a: "皆の意見を聞き、合意形成をしながら進める", b: "決められたプロセスに従い、効率的に進める", typeA: 'earth', typeB: 'metal' },
-            // 土 vs 水
-            { q: "あなたが安心するのは？", a: "物事が予測通りに進み、安定した基盤がある状態", b: "常に新しい情報が入り、変化の可能性が開かれている状態", typeA: 'earth', typeB: 'water' },
-            { q: "人との関係で大切なのは？", a: "時間をかけて築く、揺るぎない信頼関係", b: "互いに刺激を与え合える、幅広いネットワーク", typeA: 'earth', typeB: 'water' },
-            { q: "良いチームとは？", a: "役割分担が明確で、着実に成果を出せるチーム", b: "多様な才能が集まり、化学反応が起きるチーム", typeA: 'earth', typeB: 'water' },
-            // 金 vs 水
-            { q: "問題解決の方法は？", a: "問題を要素分解し、一つひとつ論理的に解決していく", b: "全体像を捉え、枠にとらわれない方法を模索する", typeA: 'metal', typeB: 'water' },
-            { q: "あなたが得意なのは？", a: "物事を仕組み化・体系化し、誰でも再現できるようにすること", b: "異なる情報や人を結びつけ、新しい価値を生み出すこと", typeA: 'metal', typeB: 'water' },
-            { q: "どちらの評価を、より嬉しく感じる？", a: "「あなたの仕事は正確で、クオリティが高い」", b: "「あなたの視点はユニークで、いつも気づきを与えてくれる」", typeA: 'metal', typeB: 'water' },
+            // Part 1: Yin/Yang (11 questions)
+            { type: 'choice', q: "エネルギーを充電する方法は？", a: "人と会って話すことで活力を得る", b: "一人の時間を過ごして静かに充電する", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "新しい環境やグループに入った時、あなたの役割は？", a: "まずはリーダーシップを発揮して場を主導したい", b: "まずは周囲を観察し、全体の調和を考える", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "自分の意見を伝える時は？", a: "結論から先に、明確かつストレートに伝える", b: "相手の反応を伺いながら、言葉を選んで慎重に伝える", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "周囲からの注目については？", a: "注目されることで、より力を発揮できる", b: "縁の下の力持ちとして、目立たず貢献することに満足する", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "意思決定のスタイルは？", a: "直感とスピードを重視し、素早く決断する", b: "情報を集め、じっくり考えてから慎重に決断する", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "チームで働くなら、どのような役割を好む？", a: "明確なビジョンを示し、チームを牽引する役割", b: "メンバーの話を聞き、チーム内の潤滑油となる役割", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "変化に対するあなたのスタンスは？", a: "変化の激しい環境に身を置くことにワクワクする", b: "安定していて、予測可能な環境で働くことを好む", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "あなたの感情表現は？", a: "考えていることや感じていることが、表情や態度に出やすい", b: "感情はあまり表に出さず、内に秘めていることが多い", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "議論や会議の場では？", a: "積極的に発言し、議論をリードしていきたい", b: "まずは他の人の意見を最後まで聞き、理解することに努める", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "あなたの興味の方向性は？", a: "幅広い人や物事に関心を持ち、外の世界とのつながりを重視する", b: "特定の分野やテーマを深く掘り下げ、自分の内面世界を重視する", typeA: 'yang', typeB: 'yin' },
+            { type: 'choice', q: "問題が発生した時、あなたの最初の一手は？", a: "すぐさま行動を起こし、具体的な対策を講じる", b: "まずは一歩引いて状況を分析し、根本原因を理解しようとする", typeA: 'yang', typeB: 'yin' },
+            
+            // Part 2: Gogyo Choice (30 questions)
+            { type: 'choice', q: "(木 vs 火) 新規プロジェクトを立ち上げるなら？", a: "綿密な計画と目標設定で、着実に成長を目指す", b: "革新的なアイデアと情熱で、一気に市場を席巻する", typeA: 'wood', typeB: 'fire' },
+            { type: 'choice', q: "(木 vs 火) あなたがリーダーとしてチームを導く方法は？", a: "明確なビジョンと責任感で、皆を正しい方向へ導く", b: "カリスマ性と熱意で、メンバーのやる気に火をつける", typeA: 'wood', typeB: 'fire' },
+            { type: 'choice', q: "(木 vs 火) あなたが仕事で「達成感」を感じる瞬間は？", a: "長期的な目標を計画通りに達成した時", b: "誰も思いつかなかったアイデアが形になった時", typeA: 'wood', typeB: 'fire' },
+            { type: 'choice', q: "(木 vs 土) あなたにとって理想の組織とは？", a: "個々が常に成長を追求し、切磋琢磨できる組織", b: "メンバーがお互いを支え合い、安心して働ける組織", typeA: 'wood', typeB: 'earth' },
+            { type: 'choice', q: "(木 vs 土) あなたが評価されたい点は？", a: "目標達成能力と、困難を乗り越える推進力", b: "チームをまとめる調整力と、人を育てる育成力", typeA: 'wood', typeB: 'earth' },
+            { type: 'choice', q: "(木 vs 土) キャリアにおいて重要なのは？", a: "常に上を目指し、自分の市場価値を高め続けること", b: "組織に深く根差し、長期的に貢献し続けること", typeA: 'wood', typeB: 'earth' },
+            { type: 'choice', q: "(木 vs 金) ルールについてどう考える？", a: "正しい目的へ導くための、守るべき規範である", b: "効率性を最大化するための、合理的な仕組みである", typeA: 'wood', typeB: 'metal' },
+            { type: 'choice', q: "(木 vs 金) 仕事の進め方で対立したら？", a: "自分の正義や信念を貫き、粘り強く説得する", b: "客観的なデータや事実を提示し、論理的に解決する", typeA: 'wood', typeB: 'metal' },
+            { type: 'choice', q: "(木 vs 金) あなたが許せないのは？", a: "責任感の欠如や、約束を破る行為", b: "非効率なプロセスや、品質への妥協", typeA: 'wood', typeB: 'metal' },
+            { type: 'choice', q: "(木 vs 水) 目標達成へのアプローチは？", a: "一度決めた道は、困難があっても真っ直ぐに進む", b: "障害があれば、回り道や別のルートを柔軟に探す", typeA: 'wood', typeB: 'water' },
+            { type: 'choice', q: "(木 vs 水) 将来の計画は？", a: "具体的なステップを描き、計画的に実行していく", b: "状況の変化に対応できるよう、あえて余白を残しておく", typeA: 'wood', typeB: 'water' },
+            { type: 'choice', q: "(木 vs 水) あなたの強みは？", a: "目標に向かって突き進む、揺るぎない推進力", b: "どんな環境にも適応し、新しい流れを生み出す力", typeA: 'wood', typeB: 'water' },
+            { type: 'choice', q: "(火 vs 土) どちらの言葉に、より共感する？", a: "「現状維持は衰退である」", b: "「急がば回れ」", typeA: 'fire', typeB: 'earth' },
+            { type: 'choice', q: "(火 vs 土) チームへの貢献方法は？", a: "新しい視点やエネルギーをもたらし、チームを活性化させる", b: "メンバーの相談に乗り、チームの心理的な土台を支える", typeA: 'fire', typeB: 'earth' },
+            { type: 'choice', q: "(火 vs 土) あなたが価値を置くのは？", a: "短期的に大きなインパクトを出すこと", b: "長期的に持続可能な成果を出すこと", typeA: 'fire', typeB: 'earth' },
+            { type: 'choice', q: "(火 vs 金) 新しいことを始める時、まず何をする？", a: "とにかく行動してみて、走りながら考える", b: "徹底的に情報を分析し、リスクを洗い出してから動く", typeA: 'fire', typeB: 'metal' },
+            { type: 'choice', q: "(火 vs 金) あなたのコミュニケーションスタイルは？", a: "情熱的に語り、相手の感情に訴えかける", b: "事実を淡々と述べ、論理的に相手を説得する", typeA: 'fire', typeB: 'metal' },
+            { type: 'choice', q: "(火 vs 金) 仕事でミスが起きた時、重視するのは？", a: "モチベーションを下げず、すぐ次のアクションに移ること", b: "原因を徹底的に分析し、再発防止策を立てること", typeA: 'fire', typeB: 'metal' },
+            { type: 'choice', q: "(火 vs 水) 注目されることについて、どう思う？", a: "自分のアイデアや情熱を表現する絶好の機会だ", b: "戦略的に影響力を行使するための手段の一つだ", typeA: 'fire', typeB: 'water' },
+            { type: 'choice', q: "(火 vs 水) あなたが面白いと感じる話は？", a: "未来の可能性を語る、夢のあるビジョンの話", b: "物事の裏側や仕組みを解き明かす、知的な洞察の話", typeA: 'fire', typeB: 'water' },
+            { type: 'choice', q: "(火 vs 水) どちらの役割が得意？", a: "イベントのムードメーカーや盛り上げ役", b: "交渉の場で相手の意図を読み解く戦略家", typeA: 'fire', typeB: 'water' },
+            { type: 'choice', q: "(土 vs 金) チームメンバーのミスに対して、どう対応する？", a: "まず相手の気持ちを受け止め、成長の機会としてサポートする", b: "客観的に事実を指摘し、ルールに則った改善を求める", typeA: 'earth', typeB: 'metal' },
+            { type: 'choice', q: "(土 vs 金) あなたが組織に求めるものは？", a: "家族のような温かい人間関係と、協力的な文化", b: "プロフェッショナルとして尊重される、公正な評価制度", typeA: 'earth', typeB: 'metal' },
+            { type: 'choice', q: "(土 vs 金) 仕事の進め方で好むのは？", a: "皆の意見を聞き、合意形成をしながら進める", b: "決められたプロセスに従い、効率的に進める", typeA: 'earth', typeB: 'metal' },
+            { type: 'choice', q: "(土 vs 水) あなたが安心するのは？", a: "物事が予測通りに進み、安定した基盤がある状態", b: "常に新しい情報が入り、変化の可能性が開かれている状態", typeA: 'earth', typeB: 'water' },
+            { type: 'choice', q: "(土 vs 水) 人との関係で大切なのは？", a: "時間をかけて築く、揺るぎない信頼関係", b: "互いに刺激を与え合える、幅広いネットワーク", typeA: 'earth', typeB: 'water' },
+            { type: 'choice', q: "(土 vs 水) 良いチームとは？", a: "役割分担が明確で、着実に成果を出せるチーム", b: "多様な才能が集まり、化学反応が起きるチーム", typeA: 'earth', typeB: 'water' },
+            { type: 'choice', q: "(金 vs 水) 問題解決の方法は？", a: "問題を要素分解し、一つひとつ論理的に解決していく", b: "全体像を捉え、枠にとらわれない方法を模索する", typeA: 'metal', typeB: 'water' },
+            { type: 'choice', q: "(金 vs 水) あなたが得意なのは？", a: "物事を仕組み化・体系化し、誰でも再現できるようにすること", b: "異なる情報や人を結びつけ、新しい価値を生み出すこと", typeA: 'metal', typeB: 'water' },
+            { type: 'choice', q: "(金 vs 水) どちらの評価を、より嬉しく感じる？", a: "「あなたの仕事は正確で、クオリティが高い」", b: "「あなたの視点はユニークで、いつも気づきを与えてくれる」", typeA: 'metal', typeB: 'water' },
+
+            // Part 3: Gogyo Ranking (2 questions)
+            { type: 'rank', q: "以下の5つの「価値観」について、あなたが最も大切にするものから順位をつけてください。", options: [
+                { text: "成長と挑戦", key: 'wood' },
+                { text: "情熱と革新", key: 'fire' },
+                { text: "安定と貢献", key: 'earth' },
+                { text: "論理と品質", key: 'metal' },
+                { text: "柔軟性と知性", key: 'water' },
+            ]},
+            { type: 'rank', q: "あなた自身の「強み」として、最も当てはまるものから順位をつけてください。", options: [
+                { text: "目標を定め、達成まで突き進む推進力", key: 'wood' },
+                { text: "人々を惹きつけ、新しいアイデアで場を盛り上げる影響力", key: 'fire' },
+                { text: "多様な意見をまとめ、チームの基盤を支える調整力", key: 'earth' },
+                { text: "物事を分析し、効率と完璧さを追求する実行力", key: 'metal' },
+                { text: "変化に対応し、戦略的に物事を進める適応力", key: 'water' },
+            ]},
         ];
         
-        // --- Report Data (Extracted from PDFs) ---
+        // --- Report Data (Full Text) ---
         const reports = {
             you_wood: {
                 name: "陽・木",
@@ -312,7 +338,7 @@
                     <h3>課題と成長領域</h3>
                     <ul>
                         <li><b>1. 持続性の欠如:</b> 火が燃料なしには燃え続けられないように、初期の情熱が冷めると急速にモチベーションが低下する傾向があります。</li>
-                        <li><b>2. 感情の起伏:</b> 火の勢いが変化するように、気分にムラが生じやすい面があります。エネルギーマネジメントを意識し、重要な決定は自分のエネルギーレベルが高い時間帯に行うよう計画することが大切です。</li>
+                        <li><b>2. 感情の起伏:</b> 火の勢いが変化するように、気分にムラが生じやすい面があります。エネルギーマネジメントを意識することが大切です。</li>
                         <li><b>3. 細部への注意力:</b> 大きな炎は細かい部分を見落としがちなように、全体像やビジョンに集中するあまり、詳細な計画や実務的な側面を軽視する傾向があります。</li>
                         <li><b>4. 忍耐力の不足:</b> 瞬発力がある反面、じっくりと腰を据えて取り組むことが苦手です。相手のペースに合わせた交渉や、時間をかけた人材育成において、焦りを感じることがあるでしょう。</li>
                     </ul>
@@ -604,34 +630,34 @@
                 details: `<p>陰陽五行思想において、陽の水は「海」「大河」を象徴し、広大な包容力と無限の可能性を表します。この性質は、「社交性」「順応性」「知略」「流動性」という四つの基本的な要素として現れます。固定観念にとらわれず、常に新しい道を見出し、人と人、組織と組織をつなぐ架け橋となる能力は、グローバル化とネットワーク化が進む現代において最も求められる資質です。</p>
                     <h3>強みと特性</h3>
                     <ul>
-                        <li><b>1. 卓越したネットワーキング能力:</b> 大河が支流を集めて海に注ぐように、あなたは多様な人脈を構築し、情報と機会を集約する才能があります。業界を超えた人脈形成、異業種交流、グローバルネットワークの構築など、組織の外部資源を最大限に活用できます。</li>
-                        <li><b>2. 柔軟な適応力と変化対応力:</b> 水が器に応じて形を変えるように、あなたは環境の変化に素早く適応し、最適な対応を見出します。組織再編、市場環境の激変、テクノロジーの進化など、あらゆる変化を機会として捉え、組織を新しい方向へ導くことができます。</li>
-                        <li><b>3. 創造的な問題解決と革新性:</b> 水が岩を避けて流れるように、あなたは障害を柔軟に回避し、新しい道を切り開きます。既存の枠組みにとらわれない発想で、誰も思いつかなかった解決策を生み出します。</li>
-                        <li><b>4. 高度な情報収集力と洞察力:</b> 海が全ての川の水を受け入れるように、あなたは多様な情報源から情報を収集し、統合する能力があります。市場トレンド、競合動向、技術革新、社会変化など、あらゆる情報を総合的に分析し、戦略的な洞察を導き出します。</li>
+                        <li><b>1. 卓越したネットワーキング能力:</b> 大河が支流を集めて海に注ぐように、あなたは多様な人脈を構築し、情報と機会を集約する才能があります。</li>
+                        <li><b>2. 柔軟な適応力と変化対応力:</b> 水が器に応じて形を変えるように、あなたは環境の変化に素早く適応し、最適な対応を見出します。あらゆる変化を機会として捉えます。</li>
+                        <li><b>3. 創造的な問題解決と革新性:</b> 水が岩を避けて流れるように、あなたは障害を柔軟に回避し、新しい道を切り開きます。既存の枠組みにとらわれない発想で、解決策を生み出します。</li>
+                        <li><b>4. 高度な情報収集力と洞察力:</b> 海が全ての川の水を受け入れるように、あなたは多様な情報源から情報を収集し、統合する能力があります。</li>
                     </ul>
                     <h3>課題と成長領域</h3>
                     <ul>
-                        <li><b>1. 一貫性と継続性の欠如:</b> 流れる水のように、常に変化を求めるあまり、一つのことに集中し続けることが苦手です。新しいプロジェクトには熱心に取り組むものの、ルーティン化すると興味を失う傾向があります。</li>
-                        <li><b>2. 深さより広さを優先する傾向:</b> 海のように広大な視野を持つ反面、専門性の深掘りが不足することがあります。「広く浅く」の知識では、専門的な判断が求められる場面で限界を感じることもあります。</li>
-                        <li><b>3. 責任の所在の曖昧さ:</b> 水が形を持たないように、責任の境界線が曖昧になりがちです。「みんなで協力して」という姿勢は素晴らしいですが、最終責任者が不明確になることもあります。</li>
-                        <li><b>4. 感情の波と気分の変動:</b> 海の波のように、感情や気分に波があり、それが仕事のパフォーマンスに影響することがあります。感情のセルフマネジメントスキルを身につけることが重要です。</li>
+                        <li><b>1. 一貫性と継続性の欠如:</b> 流れる水のように、常に変化を求めるあまり、一つのことに集中し続けることが苦手です。ルーティン化すると興味を失う傾向があります。</li>
+                        <li><b>2. 深さより広さを優先する傾向:</b> 海のように広大な視野を持つ反面、専門性の深掘りが不足することがあります。「広く浅く」の知識では限界を感じることも。</li>
+                        <li><b>3. 責任の所在の曖昧さ:</b> 水が形を持たないように、責任の境界線が曖昧になりがちです。最終責任者が不明確になることもあります。</li>
+                        <li><b>4. 感情の波と気分の変動:</b> 海の波のように、感情や気分に波があり、それが仕事のパフォーマンスに影響することがあります。</li>
                     </ul>
                     <h3>仕事観とキャリア</h3>
                     <p>あなたにとって仕事は、自由に流れ、新しい価値を創造し、人々をつなぐ場です。固定的な枠組みよりも、変化と成長の機会を重視し、常に新しい挑戦を求めます。</p>
                     <h4>適したポジション</h4>
                     <ul><li>事業開発責任者</li><li>グローバル戦略責任者</li><li>イノベーション推進責任者</li><li>アライアンス責任者</li><li>チーフ・ネットワーキング・オフィサー</li></ul>
                     <h4>成功のための環境</h4>
-                    <p>変化に富み、自由度が高く、多様性が尊重される環境で力を発揮します。スタートアップ、グローバル企業、イノベーション部門、あるいはコンサルティングファームなど、柔軟性と創造性が求められる場所が理想的です。</p>
+                    <p>変化に富み、自由度が高く、多様性が尊重される環境で力を発揮します。スタートアップ、グローバル企業、イノベーション部門などが理想的です。</p>
                     <h3>人間関係(五行の相互作用)</h3>
                     <h4>相生関係(相性が良い)</h4>
-                    <ul><li><b>金タイプとの関係:</b> 金が水を生むように、金タイプの論理性と規律が、あなたの創造性に構造を与えます。</li><li><b>木タイプへの影響:</b> 水が木を育てるように、あなたの柔軟性と情報力が、木タイプの成長を促進します。</li></ul>
+                    <ul><li><b>金タイプとの関係:</b> 金が水を生むように、金タイプの論理性があなたの創造性に構造を与えます。</li><li><b>木タイプへの影響:</b> 水が木を育てるように、あなたの柔軟性と情報力が木タイプの成長を促進します。</li></ul>
                     <h4>相剋関係(注意が必要)</h4>
-                    <ul><li><b>土タイプとの関係:</b> 土が水を吸収し制限するように、土タイプの安定志向があなたの自由な流れを妨げることがあります。</li><li><b>火タイプへの影響:</b> 水が火を消すように、あなたの冷静な分析が火タイプの情熱を冷ますことがあります。</li></ul>
+                    <ul><li><b>土タイプとの関係:</b> 土が水を吸収するように、土タイプの安定志向があなたの自由な流れを妨げることがあります。</li><li><b>火タイプへの影響:</b> 水が火を消すように、あなたの冷静な分析が火タイプの情熱を冷ますことがあります。</li></ul>
                     <h4>比和関係(同じ陽水タイプ)</h4>
-                    <p>同じ陽水タイプとの協働は、極めてダイナミックで創造的な成果を生み出します。ただし、お互いの流動性が過度になり、方向性を見失わないよう注意が必要です。</p>
+                    <p>同じ陽水タイプとの協働は、極めてダイナミックで創造的な成果を生み出します。ただし、方向性を見失わないよう注意が必要です。</p>
                     <h3>Well-Working(心地よく、健康に、幸せに働くために)</h3>
                     <h4>流動性を活かす働き方</h4>
-                    <ul><li><b>1. 複数プロジェクトの並行推進:</b> 一つのことに縛られるとエネルギーが停滞するため、複数のプロジェクトを並行して進めることで、常に新鮮な刺激を得られます。</li><li><b>2. 定期的な環境変化:</b> 同じ環境に長くいると停滞を感じるため、定期的な変化を取り入れましょう。部署異動、プロジェクトローテーションなどが有効です。</li><li><b>3. ネットワークの戦略的活用:</b> あなたの最大の資産である人脈を戦略的に活用しましょう。</li></ul>
+                    <ul><li><b>1. 複数プロジェクトの並行推進:</b> 一つのことに縛られるとエネルギーが停滞するため、複数のプロジェクトを並行して進めることで、常に新鮮な刺激を得られます。</li><li><b>2. 定期的な環境変化:</b> 同じ環境に長くいると停滞を感じるため、定期的な変化を取り入れましょう。</li><li><b>3. ネットワークの戦略的活用:</b> あなたの最大の資産である人脈を戦略的に活用しましょう。</li></ul>
                     <h4>心地よい職場環境の創造</h4>
                     <ul><li><b>物理的環境:</b> フリーアドレスやABWなど柔軟な働き方ができる空間、インフォーマルな交流ができる場所。</li><li><b>人的環境:</b> 多様性とインクルージョンが重視される文化、オープンなコミュニケーションと情報共有。</li><li><b>制度的環境:</b> フレックスタイムやリモートワークなど柔軟な勤務制度、社内公募制度。</li></ul>
                     <h4>健康的な働き方の実践</h4>
@@ -645,7 +671,7 @@
                         <li><p><b>5. 情報駆動型経営の実現</b></p><p><b>強みを活かす:</b> 多様な情報源から得た洞察を経営に活かし、データドリブンな意思決定を推進できます。<b>注意点:</b> 情報の量に圧倒されないよう、重要な指標を絞り込むことが大切です。</p></li>
                     </ul>
                     <h3>最後に</h3>
-                    <p>「陽」の「水」タイプであるあなたは、組織に流動性と革新性をもたらし、変化の時代を生き抜く力を与える存在です。大海原のような包容力と、大河のようなダイナミズムで、組織を新しい地平へと導きます。その柔軟性と適応力は、不確実性の高い現代において最も価値のある資質です。</p>`
+                    <p>「陽」の「水」タイプであるあなたは、組織に流動性と革新性をもたらし、変化の時代を生き抜く力を与える存在です。その柔軟性と適応力は、不確実性の高い現代において最も価値のある資質です。自由な発想を大切にしながらも、一定の方向性と継続性を保つことで、真に革新的なリーダーとなることができるでしょう。</p>`
             },
             in_water: {
                 name: "陰・水",
@@ -702,17 +728,13 @@
         // --- Quiz Logic ---
         let currentQuestionIndex = 0;
         let scores = {};
+        let currentRanking = [];
+        let currentRankStep = 1;
 
         function startQuiz() {
             currentQuestionIndex = 0;
             scores = {
-                yang: 0,
-                yin: 0,
-                wood: 0,
-                fire: 0,
-                earth: 0,
-                metal: 0,
-                water: 0,
+                yang: 0, yin: 0, wood: 0, fire: 0, earth: 0, metal: 0, water: 0,
             };
             startScreen.classList.add('hidden');
             resultScreen.classList.add('hidden');
@@ -726,37 +748,92 @@
         }
 
         function displayQuestion() {
-            if (currentQuestionIndex < questions.length) {
-                const question = questions[currentQuestionIndex];
-                questionCounter.textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
-                progressBar.style.width = `${((currentQuestionIndex + 1) / questions.length) * 100}%`;
-                questionText.textContent = `Q${currentQuestionIndex + 1}. ${question.q}`;
+            if (currentQuestionIndex >= questions.length) {
+                calculateResult();
+                return;
+            }
+
+            const question = questions[currentQuestionIndex];
+            questionCounter.textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
+            progressBar.style.width = `${((currentQuestionIndex + 1) / questions.length) * 100}%`;
+            
+            // Sanitize question text to remove prefixes like (木 vs 火)
+            let displayQuestionText = question.q;
+            if (question.type === 'choice' && displayQuestionText.includes(')')) {
+                 displayQuestionText = displayQuestionText.substring(displayQuestionText.indexOf(')') + 2);
+            }
+            questionText.textContent = `Q${currentQuestionIndex + 1}. ${displayQuestionText}`;
+
+
+            if (question.type === 'choice') {
+                rankingAnswers.classList.add('hidden');
+                choiceAnswers.classList.remove('hidden');
                 answerA.textContent = question.a;
                 answerB.textContent = question.b;
-                
-                answerA.onclick = () => selectAnswer(question.typeA);
-                answerB.onclick = () => selectAnswer(question.typeB);
-
-                // Add fade-in effect to the question text and buttons for smoother transition
-                quizScreen.classList.remove('fade-in');
-                void quizScreen.offsetWidth; // Trigger reflow
-                quizScreen.classList.add('fade-in');
-
-            } else {
-                calculateResult();
+                answerA.onclick = () => selectChoiceAnswer(question.typeA);
+                answerB.onclick = () => selectChoiceAnswer(question.typeB);
+            } else if (question.type === 'rank') {
+                choiceAnswers.classList.add('hidden');
+                rankingAnswers.classList.remove('hidden');
+                setupRankingQuestion(question);
             }
+            
+            quizScreen.classList.remove('fade-in');
+            void quizScreen.offsetWidth; // Trigger reflow
+            quizScreen.classList.add('fade-in');
         }
 
-        function selectAnswer(type) {
+        function selectChoiceAnswer(type) {
             scores[type]++;
             currentQuestionIndex++;
             displayQuestion();
         }
+        
+        function setupRankingQuestion(question) {
+            currentRanking = [];
+            currentRankStep = 1;
+            nextRankBtn.classList.add('hidden');
+            rankingOptions.innerHTML = '';
+            
+            rankingInstruction.textContent = `まず【1位】を選択してください。`;
+
+            question.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.dataset.key = option.key;
+                button.className = 'rank-option-btn w-full bg-gray-700 hover:bg-gray-600 text-left text-white font-medium py-4 px-6 rounded-lg';
+                button.onclick = () => selectRankOption(button, question.options.length);
+                rankingOptions.appendChild(button);
+            });
+            
+            nextRankBtn.onclick = () => {
+                // Apply weighted scores
+                const rankingPoints = [5, 4, 3, 2, 1]; // Points for 1st, 2nd, etc.
+                currentRanking.forEach((key, index) => {
+                    scores[key] += rankingPoints[index];
+                });
+
+                currentQuestionIndex++;
+                displayQuestion();
+            };
+        }
+
+        function selectRankOption(button, totalOptions) {
+            button.disabled = true;
+            button.textContent = `【${currentRankStep}位】 ${button.textContent}`;
+            currentRanking.push(button.dataset.key);
+            currentRankStep++;
+
+            if (currentRankStep > totalOptions) {
+                rankingInstruction.textContent = 'ランキングが完了しました。';
+                nextRankBtn.classList.remove('hidden');
+            } else {
+                rankingInstruction.textContent = `次に【${currentRankStep}位】を選択してください。`;
+            }
+        }
 
         function calculateResult() {
             quizScreen.classList.add('hidden');
-            
-            // Show a temporary loading state
             resultScreen.classList.remove('hidden');
             resultType.textContent = "分析中...";
             resultSummary.textContent = "あなたの本質を読み解いています。";
@@ -767,18 +844,14 @@
                 const yinYangResult = scores.yang > scores.yin ? 'you' : 'in';
                 
                 const gogyoScores = {
-                    wood: scores.wood,
-                    fire: scores.fire,
-                    earth: scores.earth,
-                    metal: scores.metal,
-                    water: scores.water,
+                    wood: scores.wood, fire: scores.fire, earth: scores.earth, metal: scores.metal, water: scores.water,
                 };
-
+                
                 const gogyoResult = Object.keys(gogyoScores).reduce((a, b) => gogyoScores[a] > gogyoScores[b] ? a : b);
 
                 const finalType = `${yinYangResult}_${gogyoResult}`;
                 displayResult(finalType);
-            }, 1500); // 1.5 seconds delay for effect
+            }, 1500);
         }
 
         function displayResult(typeKey) {
@@ -792,14 +865,11 @@
                 resultType.textContent = "エラー";
                 resultSummary.textContent = "診断結果の取得に失敗しました。";
             }
-            // Ensure the result screen is visible
-            resultScreen.classList.remove('hidden');
             resultScreen.classList.add('fade-in');
         }
 
         startBtn.addEventListener('click', startQuiz);
         restartBtn.addEventListener('click', restartQuiz);
-
     </script>
 </body>
 </html>
